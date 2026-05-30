@@ -1,0 +1,1325 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>AWS Analytics — 9 Services, No Fluff</title>
+<style>
+/* ============================================================
+   Design System
+   ============================================================ */
+:root {
+  --bg: #0F0F1A;
+  --surface: #1A1A2E;
+  --surface2: #22223A;
+  --text: #E8E8F0;
+  --muted: #9595B0;
+  --accent: #FFB347;
+  --success: #4CAF50;
+  --danger: #EF5350;
+  --border: #2A2A42;
+  --radius: 16px;
+  --radius-sm: 10px;
+  --font: 'Segoe UI', system-ui, -apple-system, sans-serif;
+  --shadow: 0 4px 24px rgba(0,0,0,0.35);
+  --transition: 0.3s cubic-bezier(0.4,0,0.2,1);
+
+  /* Service accent colors */
+  --color-athena: #4FC3F7;
+  --color-dataexchange: #81C784;
+  --color-emr: #FFB74D;
+  --color-glue: #4DB6AC;
+  --color-kinesis: #E57373;
+  --color-msk: #BA68C8;
+  --color-opensearch: #64B5F6;
+  --color-quicksight: #FF8A65;
+  --color-redshift: #90A4AE;
+}
+
+/* ============================================================
+   Reset & Base
+   ============================================================ */
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+html { scroll-behavior: smooth; scroll-padding-top: 70px; }
+body {
+  font-family: var(--font);
+  background: var(--bg);
+  color: var(--text);
+  line-height: 1.65;
+  -webkit-font-smoothing: antialiased;
+  overflow-x: hidden;
+}
+::-webkit-scrollbar { width: 6px; }
+::-webkit-scrollbar-track { background: var(--bg); }
+::-webkit-scrollbar-thumb { background: var(--surface2); border-radius: 3px; }
+::-webkit-scrollbar-thumb:hover { background: var(--accent); }
+
+/* ============================================================
+   Progress Bar (fixed top)
+   ============================================================ */
+#progressWrap {
+  position: fixed; top: 0; left: 0; width: 100%; height: 4px; z-index: 1100;
+  background: var(--surface);
+}
+#progressFill {
+  height: 100%; width: 0%;
+  background: linear-gradient(90deg, var(--accent), #FFD54F);
+  transition: width 0.5s cubic-bezier(0.4,0,0.2,1);
+  box-shadow: 0 0 14px rgba(255,179,71,0.4);
+}
+
+/* ============================================================
+   Sticky Nav (frosted glass)
+   ============================================================ */
+#stickyNav {
+  position: sticky; top: 0; z-index: 1050;
+  background: rgba(15,15,26,0.78);
+  backdrop-filter: blur(14px); -webkit-backdrop-filter: blur(14px);
+  border-bottom: 1px solid var(--border);
+  padding: 0 1rem; overflow-x: auto;
+  display: flex; align-items: center; gap: 0;
+  white-space: nowrap;
+}
+#stickyNav a {
+  display: inline-flex; align-items: center; gap: 5px;
+  padding: 12px 14px; font-size: 0.82rem; font-weight: 600;
+  color: var(--muted); text-decoration: none;
+  border-bottom: 2px solid transparent;
+  transition: color var(--transition), border-color var(--transition);
+  flex-shrink: 0;
+}
+#stickyNav a:hover, #stickyNav a:focus { color: var(--text); }
+#stickyNav a.active { color: var(--accent); border-bottom-color: var(--accent); }
+
+/* ============================================================
+   Section Shell
+   ============================================================ */
+.section {
+  max-width: 1150px; margin: 0 auto; padding: 5rem 1.5rem;
+}
+.section-header { text-align: center; margin-bottom: 3.5rem; }
+.section-header h2 {
+  font-size: clamp(1.7rem, 3.5vw, 2.4rem); font-weight: 700;
+  margin-bottom: 0.5rem; color: var(--text);
+}
+.section-header p { color: var(--muted); font-size: 1.05rem; }
+
+/* ============================================================
+   Hero
+   ============================================================ */
+.hero {
+  min-height: 92vh; display: flex; flex-direction: column;
+  align-items: center; justify-content: center; text-align: center;
+  padding: 2rem 1.5rem; position: relative;
+}
+.hero::before {
+  content: ''; position: absolute; top: 50%; left: 50%;
+  width: 550px; height: 550px; transform: translate(-50%,-50%);
+  background: radial-gradient(circle, rgba(255,179,71,0.12) 0%, transparent 70%);
+  pointer-events: none; animation: heroPulse 5s ease-in-out infinite;
+}
+@keyframes heroPulse {
+  0%,100% { opacity:0.5; transform:translate(-50%,-50%) scale(1); }
+  50% { opacity:0.85; transform:translate(-50%,-50%) scale(1.12); }
+}
+.hero-content { position: relative; z-index: 1; }
+.hero h1 {
+  font-size: clamp(2rem, 5vw, 3.6rem); font-weight: 700; line-height: 1.15;
+  margin-bottom: 1rem;
+  background: linear-gradient(135deg, var(--text) 0%, var(--accent) 50%, var(--text) 100%);
+  -webkit-background-clip: text; -webkit-text-fill-color: transparent;
+  background-size: 200% 100%; animation: shimmer 4s ease-in-out infinite;
+}
+@keyframes shimmer { 0%,100% { background-position:0% center; } 50% { background-position:200% center; } }
+.hero-subtitle {
+  font-size: clamp(0.95rem, 2vw, 1.25rem);
+  color: var(--muted); min-height: 2em;
+  display: flex; align-items: center; justify-content: center; gap: 2px;
+}
+.hero-subtitle .cursor {
+  display: inline-block; width: 2px; height: 1.2em;
+  background: var(--accent); animation: blink 0.8s step-end infinite;
+}
+@keyframes blink { 0%,100%{opacity:1;} 50%{opacity:0;} }
+
+/* Color legend row */
+.legend-row {
+  display: flex; flex-wrap: wrap; justify-content: center; gap: 8px;
+  margin-top: 2.2rem; position: relative; z-index: 1;
+}
+.legend-chip {
+  display: flex; align-items: center; gap: 5px;
+  padding: 5px 14px; border-radius: 20px;
+  font-size: 0.72rem; font-weight: 600;
+  background: var(--surface); border: 1px solid var(--border);
+  color: var(--muted); white-space: nowrap;
+}
+.legend-chip .dot {
+  width: 9px; height: 9px; border-radius: 50%; flex-shrink: 0;
+}
+
+/* Hero CTA */
+.hero-cta {
+  margin-top: 2rem; display: inline-flex; align-items: center; gap: 8px;
+  padding: 12px 32px; border-radius: 50px; z-index: 1; position: relative;
+  border: 1.5px solid var(--accent); background: transparent;
+  color: var(--accent); font-size: 0.9rem; font-weight: 600;
+  cursor: pointer; text-decoration: none;
+  transition: all var(--transition);
+}
+.hero-cta:hover { background: var(--accent); color: var(--bg); box-shadow: 0 0 28px rgba(255,179,71,0.35); }
+
+/* ============================================================
+   Decision Tree
+   ============================================================ */
+.tree-root {
+  text-align: center; margin-bottom: 2rem;
+  font-size: 1.2rem; font-weight: 700; color: var(--text);
+}
+.tree-branches { display: grid; grid-template-columns: repeat(auto-fill, minmax(300px, 1fr)); gap: 10px; }
+.tree-branch {
+  background: var(--surface); border-radius: var(--radius-sm);
+  border-left: 4px solid transparent; padding: 0.9rem 1.2rem;
+  cursor: pointer; transition: all var(--transition); text-align: left;
+  font-size: 0.92rem; font-weight: 500; color: var(--text);
+}
+.tree-branch:hover { background: var(--surface2); border-left-width: 5px; padding-left: 1.35rem; }
+.tree-answer {
+  display: none; padding: 1rem 1.2rem; margin-top: 6px;
+  background: var(--surface2); border-radius: var(--radius-sm);
+  border-left: 4px solid var(--accent); font-size: 0.9rem; line-height: 1.55;
+  animation: fadeSlide 0.35s ease;
+}
+.tree-answer.show { display: block; }
+.tree-answer .ans-service { font-weight: 700; }
+@keyframes fadeSlide { from{opacity:0;transform:translateY(-8px);} to{opacity:1;transform:translateY(0);} }
+
+/* ============================================================
+   Service Cards (grid)
+   ============================================================ */
+.cards-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(320px, 1fr)); gap: 1.5rem; }
+.svc-card {
+  background: var(--surface); border-radius: var(--radius);
+  padding: 1.75rem; border: 1px solid var(--border);
+  transition: all var(--transition);
+  opacity: 0; transform: translateY(36px);
+}
+.svc-card.visible { opacity: 1; transform: translateY(0); }
+.svc-card:hover { background: var(--surface2); box-shadow: var(--shadow); }
+.svc-card .accent-bar {
+  height: 4px; border-radius: 2px; margin-bottom: 1rem;
+}
+.svc-card .card-head {
+  display: flex; align-items: center; gap: 10px; margin-bottom: 0.6rem;
+}
+.svc-card .card-head .emoji { font-size: 1.6rem; }
+.svc-card .card-head .name { font-size: 1.1rem; font-weight: 700; }
+.svc-card .tags-row { display: flex; flex-wrap: wrap; gap: 6px; margin-bottom: 0.9rem; }
+.svc-card .tag {
+  font-size: 0.68rem; font-weight: 700; text-transform: uppercase;
+  letter-spacing: 0.4px; padding: 3px 10px; border-radius: 14px;
+}
+.tag-stream { background: rgba(100,181,246,0.12); color: #64B5F6; }
+.tag-query { background: rgba(255,183,77,0.12); color: #FFB74D; }
+.tag-etl { background: rgba(77,182,172,0.12); color: #4DB6AC; }
+.tag-viz { background: rgba(255,138,101,0.12); color: #FF8A65; }
+.tag-search { background: rgba(229,115,115,0.12); color: #E57373; }
+.tag-market { background: rgba(129,199,132,0.12); color: #81C784; }
+
+.svc-card .card-def {
+  font-size: 0.88rem; color: var(--text); line-height: 1.55;
+  margin-bottom: 0.75rem; padding: 0.6rem 0.9rem;
+  background: rgba(255,255,255,0.03); border-radius: var(--radius-sm);
+  border-left: 3px solid var(--accent);
+}
+.svc-card .exam-trigger {
+  font-size: 0.78rem; color: var(--accent); margin-bottom: 0.5rem;
+  font-weight: 600;
+}
+.svc-card .use-block, .svc-card .dont-block {
+  font-size: 0.82rem; padding: 0.6rem 0.9rem; border-radius: var(--radius-sm);
+  margin-bottom: 0.4rem; line-height: 1.45;
+}
+.svc-card .use-block { background: rgba(76,175,80,0.08); border-left: 3px solid var(--success); }
+.svc-card .use-block strong { color: var(--success); }
+.svc-card .dont-block { background: rgba(239,83,80,0.06); border-left: 3px solid var(--danger); }
+.svc-card .dont-block strong { color: var(--danger); }
+
+/* ============================================================
+   Key Concepts
+   ============================================================ */
+.concept-cards { display: flex; flex-direction: column; gap: 2rem; }
+.concept-card {
+  background: var(--surface); border-radius: var(--radius);
+  padding: 1.75rem; border: 1px solid var(--border);
+}
+.concept-card h3 { font-size: 1.15rem; margin-bottom: 0.3rem; color: var(--accent); }
+.concept-card .concept-def {
+  font-size: 0.88rem; color: var(--muted); line-height: 1.55;
+  margin-bottom: 1.1rem; padding: 0.55rem 0.85rem;
+  background: rgba(255,255,255,0.03); border-radius: var(--radius-sm);
+  border-left: 3px solid var(--accent);
+}
+.concept-table { width: 100%; border-collapse: collapse; font-size: 0.88rem; }
+.concept-table th {
+  text-align: left; padding: 10px 14px; background: var(--surface2);
+  color: var(--muted); font-weight: 700; font-size: 0.75rem;
+  text-transform: uppercase; letter-spacing: 0.5px;
+  border-bottom: 2px solid var(--border);
+}
+.concept-table td {
+  padding: 10px 14px; border-bottom: 1px solid var(--border);
+  color: var(--text); vertical-align: top;
+}
+.concept-table tr:last-child td { border-bottom: none; }
+.concept-table .hl { color: var(--accent); font-weight: 700; }
+
+/* ============================================================
+   Comparison Table
+   ============================================================ */
+.compare-scroll {
+  overflow-x: auto; border-radius: var(--radius);
+  border: 1px solid var(--border);
+}
+#compareTable {
+  width: 100%; min-width: 800px; border-collapse: collapse;
+  font-size: 0.85rem;
+}
+#compareTable th {
+  text-align: left; padding: 12px 14px; background: var(--surface2);
+  color: var(--muted); font-weight: 700; font-size: 0.72rem;
+  text-transform: uppercase; letter-spacing: 0.5px;
+  border-bottom: 2px solid var(--border); white-space: nowrap;
+}
+#compareTable td {
+  padding: 14px; border-bottom: 1px solid var(--border);
+  color: var(--text); vertical-align: top;
+}
+#compareTable tbody tr:hover { background: var(--surface2); }
+#compareTable .cat-chip {
+  display: inline-block; padding: 3px 12px; border-radius: 14px;
+  font-size: 0.7rem; font-weight: 700; text-transform: uppercase;
+}
+.cat-stream { background: rgba(100,181,246,0.15); color: #64B5F6; }
+.cat-query { background: rgba(255,183,77,0.15); color: #FFB74D; }
+.cat-etl { background: rgba(77,182,172,0.15); color: #4DB6AC; }
+.cat-vis { background: rgba(255,138,101,0.15); color: #FF8A65; }
+.cat-search { background: rgba(229,115,115,0.15); color: #E57373; }
+.cat-market { background: rgba(129,199,132,0.15); color: #81C784; }
+
+/* ============================================================
+   Flashcards
+   ============================================================ */
+.flash-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(240px, 1fr)); gap: 1.2rem; perspective: 1200px; }
+.flash-card {
+  height: 180px; cursor: pointer; position: relative;
+  transform-style: preserve-3d;
+  transition: transform 0.6s cubic-bezier(0.4,0,0.2,1);
+}
+.flash-card.flipped { transform: rotateY(180deg); }
+.flash-face {
+  position: absolute; inset: 0; backface-visibility: hidden;
+  border-radius: var(--radius-sm); border: 1px solid var(--border);
+  display: flex; flex-direction: column; align-items: center;
+  justify-content: center; padding: 1.2rem; text-align: center;
+}
+.flash-front { background: var(--surface); }
+.flash-front .prompt { font-size: 0.92rem; font-weight: 600; color: var(--text); }
+.flash-front .hint {
+  font-size: 0.68rem; color: var(--muted); margin-top: 0.5rem;
+}
+.flash-back {
+  background: var(--surface2); transform: rotateY(180deg);
+}
+.flash-back .answer {
+  font-size: 1rem; font-weight: 700; margin-bottom: 0.3rem;
+}
+.flash-back .detail { font-size: 0.78rem; color: var(--muted); }
+
+/* ============================================================
+   Scenarios
+   ============================================================ */
+.scenario-grid { display: flex; flex-direction: column; gap: 1rem; }
+.scenario-card {
+  background: var(--surface); border-radius: var(--radius-sm);
+  padding: 1.25rem 1.5rem; border: 2px solid var(--border);
+  transition: all var(--transition);
+}
+.scenario-card.correct { border-color: var(--success); box-shadow: 0 0 18px rgba(76,175,80,0.18); }
+.scenario-card.wrong { border-color: var(--danger); box-shadow: 0 0 18px rgba(239,83,80,0.18); }
+.scenario-card .sc-text { font-size: 0.95rem; margin-bottom: 0.75rem; font-weight: 500; }
+.scenario-card .sc-controls { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; }
+.scenario-card select {
+  padding: 8px 12px; border-radius: var(--radius-sm);
+  background: var(--surface2); color: var(--text); border: 1px solid var(--border);
+  font-family: var(--font); font-size: 0.85rem; min-width: 220px; cursor: pointer;
+}
+.scenario-card select:focus { outline: none; border-color: var(--accent); }
+.scenario-card .check-btn {
+  padding: 8px 20px; border-radius: var(--radius-sm);
+  font-weight: 600; font-size: 0.82rem; cursor: pointer;
+  background: transparent; border: 1.5px solid var(--accent);
+  color: var(--accent); transition: all var(--transition);
+}
+.scenario-card .check-btn:hover { background: var(--accent); color: var(--bg); }
+.scenario-card .sc-feedback { margin-top: 0.6rem; font-size: 0.85rem; display: none; }
+.scenario-card .sc-feedback.show { display: block; }
+.scenario-card .sc-feedback.correct-fb { color: #81C784; }
+.scenario-card .sc-feedback.wrong-fb { color: #EF9A9A; }
+.scenario-score {
+  text-align: center; font-size: 1.1rem; font-weight: 700;
+  margin-bottom: 1.5rem; color: var(--accent);
+}
+
+/* ============================================================
+   Quiz
+   ============================================================ */
+.quiz-wrap { max-width: 720px; margin: 0 auto; }
+.quiz-progress-text {
+  text-align: center; color: var(--muted);
+  font-size: 0.82rem; font-weight: 600; margin-bottom: 1.5rem;
+}
+.quiz-card {
+  background: var(--surface); border: 1.5px solid var(--border);
+  border-radius: var(--radius); padding: 2rem; margin-bottom: 1rem;
+  transition: all var(--transition);
+}
+.quiz-card.correct { border-color: var(--success); box-shadow: 0 0 20px rgba(76,175,80,0.15); }
+.quiz-card.incorrect { border-color: var(--danger); box-shadow: 0 0 20px rgba(239,83,80,0.15); }
+.quiz-q-num { font-size: 0.72rem; color: var(--muted); margin-bottom: 0.4rem; text-transform: uppercase; letter-spacing: 0.6px; font-weight: 700; }
+.quiz-question { font-size: 1.08rem; font-weight: 600; margin-bottom: 1.2rem; line-height: 1.45; }
+.quiz-options { display: flex; flex-direction: column; gap: 8px; }
+.quiz-option {
+  display: flex; align-items: center; gap: 10px;
+  padding: 12px 16px; border-radius: var(--radius-sm);
+  border: 1.5px solid var(--border); background: var(--surface2);
+  color: var(--text); cursor: pointer; font-family: var(--font);
+  font-size: 0.92rem; text-align: left; transition: all var(--transition);
+}
+.quiz-option:hover:not(.disabled) { border-color: var(--accent); background: rgba(255,179,71,0.05); }
+.quiz-option.correct-choice { border-color: var(--success); background: rgba(76,175,80,0.12); color: var(--success); }
+.quiz-option.wrong-choice { border-color: var(--danger); background: rgba(239,83,80,0.08); color: var(--danger); }
+.quiz-option.disabled { pointer-events: none; opacity: 0.7; }
+.quiz-option .opt-badge {
+  width: 28px; height: 28px; border-radius: 50%;
+  background: var(--surface); display: flex; align-items: center; justify-content: center;
+  font-size: 0.78rem; font-weight: 700; flex-shrink: 0;
+  border: 1px solid var(--border);
+}
+.quiz-option.correct-choice .opt-badge { background: var(--success); color: #fff; border-color: var(--success); }
+.quiz-option.wrong-choice .opt-badge { background: var(--danger); color: #fff; border-color: var(--danger); }
+.quiz-feedback {
+  margin-top: 1rem; padding: 1rem; border-radius: var(--radius-sm);
+  font-size: 0.88rem; line-height: 1.5; display: none;
+}
+.quiz-feedback.show { display: block; animation: fadeSlide 0.3s ease; }
+.quiz-feedback.correct-fb { background: rgba(76,175,80,0.1); border: 1px solid rgba(76,175,80,0.25); color: #A5D6A7; }
+.quiz-feedback.incorrect-fb { background: rgba(239,83,80,0.08); border: 1px solid rgba(239,83,80,0.2); color: #EF9A9A; }
+.quiz-next {
+  margin-top: 1rem; display: none; padding: 10px 24px;
+  border-radius: var(--radius-sm); border: 1.5px solid var(--accent);
+  background: transparent; color: var(--accent); font-size: 0.82rem;
+  font-weight: 600; cursor: pointer; font-family: var(--font);
+  transition: all var(--transition);
+}
+.quiz-next.show { display: inline-flex; align-items: center; gap: 6px; }
+.quiz-next:hover { background: var(--accent); color: var(--bg); }
+
+/* Score Card */
+.score-card {
+  text-align: center; padding: 3rem 2rem; background: var(--surface);
+  border-radius: var(--radius); border: 1px solid var(--border);
+  display: none;
+}
+.score-card.show { display: block; animation: popIn 0.5s cubic-bezier(0.175,0.885,0.32,1.275); }
+@keyframes popIn { from{opacity:0;transform:scale(0.85);} to{opacity:1;transform:scale(1);} }
+.score-number { font-size: 3.5rem; font-weight: 800; margin-bottom: 0.3rem; }
+.score-grade { font-size: 1.4rem; font-weight: 700; margin-bottom: 0.5rem; }
+.score-msg { color: var(--muted); max-width: 420px; margin: 0 auto 1.5rem; font-size: 0.95rem; }
+.score-retry {
+  padding: 11px 30px; border-radius: 50px; border: 2px solid var(--accent);
+  background: transparent; color: var(--accent); font-size: 0.88rem;
+  font-weight: 600; cursor: pointer; font-family: var(--font);
+  transition: all var(--transition);
+}
+.score-retry:hover { background: var(--accent); color: var(--bg); }
+
+/* Confetti */
+.confetti-container { position:fixed; inset:0; pointer-events:none; z-index:2000; }
+.confetti-piece {
+  position:absolute; width:10px; height:10px; opacity:0;
+  animation: confettiFall var(--d,2.5s) var(--delay,0s) ease-out forwards;
+}
+@keyframes confettiFall {
+  0%{opacity:1;transform:translate(0,0) rotate(0deg) scale(1);}
+  100%{opacity:0;transform:translate(var(--dx),var(--dy)) rotate(var(--sp)) scale(0.25);}
+}
+
+/* ============================================================
+   Cheat Sheet
+   ============================================================ */
+.cheatsheet-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(280px, 1fr)); gap: 10px; }
+.cheat-item {
+  display: flex; align-items: center; gap: 12px;
+  padding: 12px 16px; background: var(--surface);
+  border-radius: var(--radius-sm); border-left: 3px solid transparent;
+  transition: all var(--transition);
+}
+.cheat-item:hover {
+  border-left-color: var(--accent);
+  transform: translateX(4px);
+  background: var(--surface2);
+}
+.cheat-item .ch-emoji { font-size: 1.5rem; flex-shrink: 0; }
+.cheat-item .ch-desc { flex:1; font-size: 0.85rem; color: var(--text); }
+.cheat-item .ch-service { font-size: 0.72rem; font-weight: 700; color: var(--muted); flex-shrink: 0; }
+
+/* ============================================================
+   Footer
+   ============================================================ */
+.footer {
+  border-top: 1px solid var(--border); text-align: center;
+  padding: 2rem; color: var(--muted); font-size: 0.82rem;
+}
+
+/* ============================================================
+   Responsive
+   ============================================================ */
+@media (max-width: 768px) {
+  .section { padding: 3rem 1rem; }
+  .hero h1 { font-size: clamp(1.5rem, 7vw, 2.4rem); }
+  .cards-grid { grid-template-columns: 1fr; }
+  .flash-grid { grid-template-columns: 1fr 1fr; }
+  .cheatsheet-grid { grid-template-columns: 1fr; }
+  .tree-branches { grid-template-columns: 1fr; }
+  #stickyNav a { padding: 10px 11px; font-size: 0.75rem; }
+}
+@media (max-width: 480px) {
+  .flash-grid { grid-template-columns: 1fr; }
+  .hero { min-height: 85vh; }
+  #stickyNav { gap: 0; }
+  #stickyNav a { padding: 9px 8px; font-size: 0.7rem; }
+  .concept-table { font-size: 0.78rem; }
+  .concept-table th, .concept-table td { padding: 8px; }
+  .quiz-card { padding: 1.25rem; }
+  .legend-row { gap: 5px; }
+  .legend-chip { font-size: 0.65rem; padding: 4px 10px; }
+}
+</style>
+</head>
+<body>
+
+<!-- Progress Bar -->
+<div id="progressWrap"><div id="progressFill"></div></div>
+
+<!-- Sticky Nav -->
+<nav id="stickyNav">
+  <a href="#hero" class="active">&#127968; Home</a>
+  <a href="#tree">&#127795; Decision Tree</a>
+  <a href="#cards">&#127199; Service Cards</a>
+  <a href="#concepts">&#128214; Concepts</a>
+  <a href="#compare">&#128202; Compare</a>
+  <a href="#memory">&#129504; Memory</a>
+  <a href="#scenarios">&#127919; Scenarios</a>
+  <a href="#quiz">&#128221; Quiz</a>
+  <a href="#cheatsheet">&#128203; Cheat Sheet</a>
+</nav>
+
+<!-- ============================================================
+     Hero
+     ============================================================ -->
+<section class="hero" id="hero">
+  <div class="hero-content">
+    <h1>AWS Analytics<br>Explained Without<br>the Boring Parts</h1>
+    <div class="hero-subtitle">
+      <span id="typedText"></span><span class="cursor">|</span>
+    </div>
+    <div class="legend-row" id="legendRow"></div>
+    <a href="#tree" class="hero-cta">Start Learning &#8595;</a>
+  </div>
+</section>
+
+<!-- ============================================================
+     Decision Tree
+     ============================================================ -->
+<section class="section" id="tree">
+  <div class="section-header">
+    <h2>&#127795; Decision Tree</h2>
+    <p>Start here — pick what you're trying to do and we'll tell you which service fits</p>
+  </div>
+  <div class="tree-root">&#128225; What are you trying to do?</div>
+  <div class="tree-branches" id="treeBranches"></div>
+</section>
+
+<!-- ============================================================
+     Service Cards
+     ============================================================ -->
+<section class="section" id="cards">
+  <div class="section-header">
+    <h2>&#127199; Service Cards</h2>
+    <p>All 9 services, with exam trigger words and when to use (or not)</p>
+  </div>
+  <div class="cards-grid" id="cardsGrid"></div>
+</section>
+
+<!-- ============================================================
+     Key Concepts
+     ============================================================ -->
+<section class="section" id="concepts">
+  <div class="section-header">
+    <h2>&#128214; Key Concepts</h2>
+    <p>Three mental models that unlock the analytics landscape</p>
+  </div>
+  <div class="concept-cards">
+    <!-- Batch vs Streaming -->
+    <div class="concept-card">
+      <h3>&#9201; Batch Processing vs Stream Processing</h3>
+      <p class="concept-def">Batch = process a big pile of data all at once later. Streaming = process each event the moment it arrives.</p>
+      <table class="concept-table">
+        <thead><tr><th>Dimension</th><th>Batch</th><th>Streaming</th></tr></thead>
+        <tbody>
+          <tr><td><strong>Data scope</strong></td><td>Processes a finite chunk of data at rest</td><td>Processes an unbounded, continuous flow</td></tr>
+          <tr><td><strong>Latency</strong></td><td>Minutes to hours</td><td>Milliseconds to seconds</td></tr>
+          <tr><td><strong>AWS services</strong></td><td class="hl">EMR, Glue, Athena</td><td class="hl">Kinesis, MSK</td></tr>
+          <tr><td><strong>Best for</strong></td><td>Daily aggregations, ETL, historical analysis</td><td>Real-time dashboards, anomaly detection, alerting</td></tr>
+          <tr><td><strong>Example</strong></td><td>Process yesterday's sales data each night</td><td>Detect fraud on every credit card swipe as it happens</td></tr>
+        </tbody>
+      </table>
+    </div>
+
+    <!-- Schema-on-Read vs Schema-on-Write -->
+    <div class="concept-card">
+      <h3>&#128221; Schema-on-Read vs Schema-on-Write</h3>
+      <p class="concept-def">Schema = the structure of your data (column names, types). Do you check that structure when you store the data, or when you query it?</p>
+      <table class="concept-table">
+        <thead><tr><th>Dimension</th><th>Schema-on-Read</th><th>Schema-on-Write</th></tr></thead>
+        <tbody>
+          <tr><td><strong>When schema is applied</strong></td><td>At query time</td><td>At ingestion time</td></tr>
+          <tr><td><strong>Data validation</strong></td><td>None on write — raw data lands as-is</td><td>Data is validated and transformed before storage</td></tr>
+          <tr><td><strong>AWS services</strong></td><td class="hl">Athena, Glue Crawlers (catalog)</td><td class="hl">Redshift, Glue ETL (transforms)</td></tr>
+          <tr><td><strong>Flexibility</strong></td><td>High — redefine schema any time</td><td>Low — schema changes require migration</td></tr>
+          <tr><td><strong>Query speed</strong></td><td>Slower (parse + apply schema each query)</td><td>Faster (columnar, optimized, pre-sorted)</td></tr>
+        </tbody>
+      </table>
+    </div>
+
+    <!-- Managed vs Self-Managed -->
+    <div class="concept-card">
+      <h3>&#9881; Managed Service vs Self-Managed on AWS</h3>
+      <p class="concept-def">Managed = AWS runs the software for you. Self-managed = you install and run the software yourself on AWS servers.</p>
+      <table class="concept-table">
+        <thead><tr><th>Dimension</th><th>Managed</th><th>Self-Managed (on EC2/EKS)</th></tr></thead>
+        <tbody>
+          <tr><td><strong>Patching & upgrades</strong></td><td>AWS handles it</td><td>You handle it</td></tr>
+          <tr><td><strong>Scaling</strong></td><td>Auto-scaling or API call</td><td>Manual or custom automation</td></tr>
+          <tr><td><strong>AWS examples</strong></td><td class="hl">MSK, OpenSearch, Glue, Athena, Kinesis, QuickSight, Redshift</td><td class="hl">EMR (you pick instances), self-managed Kafka on EC2</td></tr>
+          <tr><td><strong>Control vs ease</strong></td><td>Less control, less ops burden</td><td>Full control, more ops burden</td></tr>
+          <tr><td><strong>Cost tradeoff</strong></td><td>Premium per-use pricing</td><td>Lower infrastructure cost but higher people cost</td></tr>
+        </tbody>
+      </table>
+    </div>
+  </div>
+</section>
+
+<!-- ============================================================
+     Master Comparison Table
+     ============================================================ -->
+<section class="section" id="compare">
+  <div class="section-header">
+    <h2>&#128202; Master Comparison</h2>
+    <p>All 9 services side by side — scroll horizontally to see everything</p>
+  </div>
+  <div class="compare-scroll">
+    <table id="compareTable">
+      <thead>
+        <tr><th>Service</th><th>Type</th><th>Primary Use Case</th><th>Exam Keywords</th><th>Category</th></tr>
+      </thead>
+      <tbody id="compareBody"></tbody>
+    </table>
+  </div>
+</section>
+
+<!-- ============================================================
+     Flashcards
+     ============================================================ -->
+<section class="section" id="memory">
+  <div class="section-header">
+    <h2>&#129504; Memory Flashcards</h2>
+    <p>Click to flip. Front = prompt, back = answer.</p>
+  </div>
+  <div class="flash-grid" id="flashGrid"></div>
+</section>
+
+<!-- ============================================================
+     Scenario Practice
+     ============================================================ -->
+<section class="section" id="scenarios">
+  <div class="section-header">
+    <h2>&#127919; Scenario Practice</h2>
+    <p>Pick the right service for each scenario — instant feedback</p>
+  </div>
+  <div class="scenario-score" id="scenarioScore">Score: 0 / 10</div>
+  <div class="scenario-grid" id="scenarioGrid"></div>
+</section>
+
+<!-- ============================================================
+     Quiz
+     ============================================================ -->
+<section class="section" id="quiz">
+  <div class="section-header">
+    <h2>&#128221; Quiz</h2>
+    <p>20 questions across all 9 services. Mix of recall, application, and gotchas.</p>
+  </div>
+  <div class="quiz-wrap">
+    <div class="quiz-progress-text" id="quizProgress">Question 1 of 20</div>
+    <div id="quizContainer"></div>
+    <div class="score-card" id="scoreCard">
+      <div class="score-number" id="scoreNumber">0/20</div>
+      <div class="score-grade" id="scoreGrade"></div>
+      <p class="score-msg" id="scoreMsg"></p>
+      <button class="score-retry" onclick="resetQuiz()">Try Again &#10227;</button>
+    </div>
+  </div>
+</section>
+
+<!-- ============================================================
+     Cheat Sheet
+     ============================================================ -->
+<section class="section" id="cheatsheet">
+  <div class="section-header">
+    <h2>&#128203; Cheat Sheet</h2>
+    <p>Quick reference — emoji hints mapped to the right service</p>
+  </div>
+  <div class="cheatsheet-grid" id="cheatsheetGrid"></div>
+</section>
+
+<!-- Confetti -->
+<div class="confetti-container" id="confettiContainer"></div>
+
+<!-- Footer -->
+<footer class="footer">
+  Built to be useful. AWS service names are trademarks of Amazon.
+</footer>
+
+<!-- ============================================================
+     SCRIPTS
+     ============================================================ -->
+<script>
+'use strict';
+
+// ============================================================
+// SERVICE DATA (single source of truth)
+// ============================================================
+const services = [
+  {
+    id: 'athena', name: 'Amazon Athena', emoji: '🔍',
+    color: '#4FC3F7', varName: '--color-athena',
+    tags: [{ label: 'Query', cls: 'tag-query' }],
+    catChip: { label: 'Query', cls: 'cat-query' },
+    type: 'Serverless SQL',
+    definition: 'Run SQL on files in S3 without setting up a database.',
+    useCase: 'SQL queries on S3 data — no servers needed',
+    examKeywords: 'Presto, S3, serverless, pay-per-query, Parquet, partitioning',
+    examTrigger: '"Run SQL on S3", "Serverless", "Pay per TB scanned"',
+    useIt: 'Asking ad-hoc questions about data already in S3. Analyzing logs. Quick data exploration without loading anything anywhere.',
+    dontIt: 'Sub-second queries. Running the same report every day (use Redshift). Real-time streaming data.',
+  },
+  {
+    id: 'dataexchange', name: 'AWS Data Exchange', emoji: '📦',
+    color: '#81C784', varName: '--color-dataexchange',
+    tags: [{ label: 'Marketplace', cls: 'tag-market' }],
+    catChip: { label: 'Marketplace', cls: 'cat-market' },
+    type: 'Data Marketplace',
+    definition: 'Buy third-party datasets and have them delivered to your S3 bucket.',
+    useCase: 'Find and subscribe to third-party datasets',
+    examKeywords: 'third-party data, subscriptions, marketplace, S3 delivery, licensing',
+    examTrigger: '"Subscribe to data", "Third-party datasets", "Delivered to S3"',
+    useIt: 'Buying licensed datasets (financial, weather, satellite). Enriching your data with external sources. Selling your own data.',
+    dontIt: 'Sharing your data across AWS accounts (use RAM). Free public data (use Open Data Registry).',
+  },
+  {
+    id: 'emr', name: 'Amazon EMR', emoji: '⚡',
+    color: '#FFB74D', varName: '--color-emr',
+    tags: [{ label: 'Batch', cls: 'tag-etl' }],
+    catChip: { label: 'Big Data', cls: 'cat-etl' },
+    type: 'Managed Big Data',
+    definition: 'Run Spark, Hive, or Hadoop jobs on managed server clusters.',
+    useCase: 'Run Spark, Hive, Hadoop on managed clusters',
+    examKeywords: 'Spark, Hive, Hadoop, clusters, lift-and-shift, big data',
+    examTrigger: '"Run Spark jobs", "Migrate Hadoop", "Big data processing"',
+    useIt: 'Moving on-prem Hadoop/Spark to the cloud. Heavy data processing at petabyte scale. Need specific open-source big-data tools.',
+    dontIt: 'Simple ETL on small data (use Glue). Ad-hoc SQL on S3 (use Athena). You want serverless (use Glue or EMR Serverless).',
+  },
+  {
+    id: 'glue', name: 'AWS Glue', emoji: '🗂️',
+    color: '#4DB6AC', varName: '--color-glue',
+    tags: [{ label: 'Catalog', cls: 'tag-etl' }, { label: 'ETL', cls: 'tag-etl' }],
+    catChip: { label: 'ETL / Catalog', cls: 'cat-etl' },
+    type: 'Serverless ETL + Catalog',
+    definition: 'Automatically scan, catalog, and transform your data — no servers needed.',
+    useCase: 'Auto-discover schemas and run serverless ETL',
+    examKeywords: 'crawler, data catalog, schema inference, serverless ETL, metadata',
+    examTrigger: '"Crawler", "Data Catalog", "Serverless ETL"',
+    useIt: 'Automatically discovering schemas across many data sources. Building a searchable catalog of all your data. Running scheduled ETL without managing servers.',
+    dontIt: 'Real-time streaming ETL (use Kinesis). Simple single-table transforms (Lambda works too). Sub-second job startup times.',
+  },
+  {
+    id: 'kinesis', name: 'Amazon Kinesis', emoji: '🌊',
+    color: '#E57373', varName: '--color-kinesis',
+    tags: [{ label: 'Streaming', cls: 'tag-stream' }],
+    catChip: { label: 'Streaming', cls: 'cat-stream' },
+    type: 'Real-time Streaming',
+    definition: 'Process live streaming data — clicks, sensors, video — as it arrives.',
+    useCase: 'Process live data streams in real time',
+    examKeywords: 'Data Streams, Firehose, real-time, clickstream, IoT, shards',
+    examTrigger: '"Real-time", "Firehose to S3", "Streaming data"',
+    useIt: 'Live clickstream tracking. IoT sensor data. Firehose: push streaming data to S3 with zero code. Data Streams: custom processing with full control.',
+    dontIt: 'Already using Kafka (use MSK). Simple queuing (use SQS). You don\'t need real-time (batch is fine).',
+  },
+  {
+    id: 'msk', name: 'Amazon MSK', emoji: '📨',
+    color: '#BA68C8', varName: '--color-msk',
+    tags: [{ label: 'Streaming', cls: 'tag-stream' }],
+    catChip: { label: 'Streaming', cls: 'cat-stream' },
+    type: 'Managed Kafka',
+    definition: 'Apache Kafka, but AWS runs the servers for you.',
+    useCase: 'Fully managed Apache Kafka in AWS',
+    examKeywords: 'Apache Kafka, managed streaming, Kafka Connect, brokers',
+    examTrigger: '"Managed Kafka", "Existing Kafka", "Kafka Connect"',
+    useIt: 'Your team already uses Kafka and wants it managed. Need Kafka-specific features (exactly-once, long retention). Hybrid cloud/on-prem streaming.',
+    dontIt: 'Starting fresh on AWS (try Kinesis first). Simple messaging (use SQS/SNS). Low-volume streaming.',
+  },
+  {
+    id: 'opensearch', name: 'Amazon OpenSearch', emoji: '🔎',
+    color: '#64B5F6', varName: '--color-opensearch',
+    tags: [{ label: 'Search', cls: 'tag-search' }, { label: 'Query', cls: 'tag-query' }],
+    catChip: { label: 'Search', cls: 'cat-search' },
+    type: 'Search & Observability',
+    definition: 'Add Google-like search to your app — handles typos, ranks results, and analyzes logs.',
+    useCase: 'Full-text search and log analytics',
+    examKeywords: 'Elasticsearch fork, full-text search, log analytics, dashboards, fuzzy search',
+    examTrigger: '"Search engine", "Log analytics", "Fork of Elasticsearch"',
+    useIt: 'Adding a search bar to your app. Analyzing logs. Building operational dashboards. Finding typos and near-matches.',
+    dontIt: 'SQL-style analytics with joins (use Redshift). BI dashboards for execs (use QuickSight). Ad-hoc S3 queries (use Athena).',
+  },
+  {
+    id: 'quicksight', name: 'Amazon QuickSight', emoji: '📊',
+    color: '#FF8A65', varName: '--color-quicksight',
+    tags: [{ label: 'Visualization', cls: 'tag-viz' }],
+    catChip: { label: 'Visualization', cls: 'cat-vis' },
+    type: 'Business Intelligence',
+    definition: 'Build charts and dashboards by dragging and dropping — no SQL required.',
+    useCase: 'Drag-and-drop dashboards — serverless',
+    examKeywords: 'SPICE, dashboards, BI, serverless, pay-per-session, drag-and-drop',
+    examTrigger: '"Dashboards", "SPICE engine", "Pay-per-session"',
+    useIt: 'Building dashboards for business teams. Drag-and-drop data exploration. Embedding charts in your app. Pay only when people use the dashboards.',
+    dontIt: 'Real-time ops monitoring (use OpenSearch Dashboards). Pixel-perfect printed reports. Infrastructure metrics (use Grafana).',
+  },
+  {
+    id: 'redshift', name: 'Amazon Redshift', emoji: '🏢',
+    color: '#90A4AE', varName: '--color-redshift',
+    tags: [{ label: 'Query', cls: 'tag-query' }, { label: 'Batch', cls: 'tag-etl' }],
+    catChip: { label: 'Data Warehouse', cls: 'cat-query' },
+    type: 'Data Warehouse',
+    definition: 'A super-fast SQL database for analyzing massive amounts of data.',
+    useCase: 'Fast SQL analytics on massive structured data',
+    examKeywords: 'columnar, MPP, data warehouse, Spectrum, sort key, dist key, materialized views',
+    examTrigger: '"Data warehouse", "Columnar storage", "MPP"',
+    useIt: 'A single source of truth for company analytics. Complex joins on large structured tables. Consistent fast query performance. BI tool integration.',
+    dontIt: 'Ad-hoc queries on raw S3 files (use Athena). Search workloads (use OpenSearch). Small data under 100GB (use RDS).',
+  },
+];
+
+// Lookup helpers
+const serviceById = {};
+services.forEach(s => { serviceById[s.id] = s; });
+const serviceNames = services.map(s => s.name);
+
+// ============================================================
+// TYPING ANIMATION
+// ============================================================
+const typedEl = document.getElementById('typedText');
+const phrases = [
+  '9 services. No fluff. One quiz.',
+  'Learn what each one actually does.',
+  'Know when to use them (and when not to).',
+  'Impress your architect. Or at least pass the exam.',
+];
+let phraseIdx = 0, charIdx = 0, isDeleting = false, typeSpeed = 60;
+(function typeLoop() {
+  const current = phrases[phraseIdx];
+  typedEl.textContent = isDeleting
+    ? current.substring(0, charIdx - 1)
+    : current.substring(0, charIdx + 1);
+  charIdx += isDeleting ? -1 : 1;
+  typeSpeed = isDeleting ? 25 : 55;
+  if (!isDeleting && charIdx === current.length) { typeSpeed = 2000; isDeleting = true; }
+  else if (isDeleting && charIdx === 0) { isDeleting = false; phraseIdx = (phraseIdx + 1) % phrases.length; typeSpeed = 400; }
+  setTimeout(typeLoop, typeSpeed);
+})();
+
+// ============================================================
+// COLOR LEGEND (hero)
+// ============================================================
+const legendRow = document.getElementById('legendRow');
+services.forEach(s => {
+  const chip = document.createElement('span');
+  chip.className = 'legend-chip';
+  chip.innerHTML = `<span class="dot" style="background:${s.color}"></span>${s.name}`;
+  legendRow.appendChild(chip);
+});
+
+// ============================================================
+// DECISION TREE — 6 simple branches
+// ============================================================
+const treeData = [
+  {
+    icon: '🔍', prompt: 'I want to search logs or add a search bar to my app',
+    answer: 'Use <strong style="color:#64B5F6">Amazon OpenSearch</strong> — a managed search engine. Handles typos, ranks results by relevance, and comes with dashboards for log analytics.',
+    color: '#64B5F6',
+  },
+  {
+    icon: '📊', prompt: 'I want to build charts and dashboards for business users',
+    answer: 'Use <strong style="color:#FF8A65">Amazon QuickSight</strong> — drag-and-drop BI dashboards. Connects to Redshift, Athena, S3. Pay only when people use them.',
+    color: '#FF8A65',
+  },
+  {
+    icon: '⚡', prompt: 'I want to process live streaming data (clicks, sensors, video)',
+    answer: 'Use <strong style="color:#E57373">Amazon Kinesis</strong> for real-time streaming. Or <strong style="color:#BA68C8">Amazon MSK</strong> if your team already uses Kafka and wants it managed.',
+    color: '#E57373',
+  },
+  {
+    icon: '🗄️', prompt: 'I want to run SQL queries on files already sitting in S3',
+    answer: 'Use <strong style="color:#4FC3F7">Amazon Athena</strong> — just write SQL, point at your S3 bucket, and get results. No servers, no data loading. Pay per TB scanned.',
+    color: '#4FC3F7',
+  },
+  {
+    icon: '🏢', prompt: 'I need a proper database for complex analytics on large data',
+    answer: 'Use <strong style="color:#90A4AE">Amazon Redshift</strong> — a columnar data warehouse built for speed. Stores data by column so complex queries on big tables finish fast.',
+    color: '#90A4AE',
+  },
+  {
+    icon: '🛠️', prompt: 'I need to clean up, prepare, or catalog messy data',
+    answer: 'Use <strong style="color:#4DB6AC">AWS Glue</strong> to auto-discover schemas and run ETL without servers. For heavy Spark/Hadoop jobs, use <strong style="color:#FFB74D">Amazon EMR</strong>. Need external datasets? <strong style="color:#81C784">AWS Data Exchange</strong>.',
+    color: '#4DB6AC',
+  },
+];
+
+const treeBranches = document.getElementById('treeBranches');
+let openTreeAnswer = null;
+treeData.forEach(t => {
+  const wrapper = document.createElement('div');
+  const btn = document.createElement('button');
+  btn.className = 'tree-branch';
+  btn.style.borderLeftColor = t.color;
+  btn.innerHTML = `<span style="font-size:1.2rem;margin-right:8px">${t.icon}</span>${t.prompt}`;
+  btn.addEventListener('click', () => {
+    if (openTreeAnswer && openTreeAnswer !== wrapper) {
+      openTreeAnswer.querySelector('.tree-answer').classList.remove('show');
+    }
+    const ans = wrapper.querySelector('.tree-answer');
+    ans.classList.toggle('show');
+    openTreeAnswer = ans.classList.contains('show') ? wrapper : null;
+  });
+  const ans = document.createElement('div');
+  ans.className = 'tree-answer';
+  ans.innerHTML = t.answer;
+  wrapper.appendChild(btn);
+  wrapper.appendChild(ans);
+  treeBranches.appendChild(wrapper);
+});
+
+// ============================================================
+// SERVICE CARDS
+// ============================================================
+const cardsGrid = document.getElementById('cardsGrid');
+services.forEach((s, i) => {
+  const card = document.createElement('article');
+  card.className = 'svc-card';
+  card.id = 'svc-' + s.id;
+  card.style.transitionDelay = (i % 3) * 0.08 + 's';
+  card.innerHTML = `
+    <div class="accent-bar" style="background:${s.color}"></div>
+    <div class="card-head">
+      <span class="emoji">${s.emoji}</span>
+      <span class="name">${s.name}</span>
+    </div>
+    <div class="tags-row">${s.tags.map(t => `<span class="tag ${t.cls}">${t.label}</span>`).join(' ')}</div>
+    <p class="card-def">📖 ${s.definition}</p>
+    <div class="exam-trigger">🎯 Exam trigger words: ${s.examTrigger}</div>
+    <div class="use-block"><strong>✅ Use this when:</strong> ${s.useIt}</div>
+    <div class="dont-block"><strong>❌ Don't confuse with:</strong> ${s.dontIt}</div>
+  `;
+  cardsGrid.appendChild(card);
+});
+
+// IntersectionObserver for card animations
+const cardObserver = new IntersectionObserver((entries) => {
+  entries.forEach(e => {
+    if (e.isIntersecting) {
+      e.target.classList.add('visible');
+      cardObserver.unobserve(e.target);
+    }
+  });
+}, { threshold: 0.12, rootMargin: '0px 0px -30px 0px' });
+document.querySelectorAll('.svc-card').forEach(c => cardObserver.observe(c));
+
+// ============================================================
+// COMPARISON TABLE
+// ============================================================
+const compareBody = document.getElementById('compareBody');
+services.forEach(s => {
+  const tr = document.createElement('tr');
+  tr.innerHTML = `
+    <td><strong style="color:${s.color}">${s.name}</strong></td>
+    <td>${s.type}</td>
+    <td>${s.useCase}</td>
+    <td style="font-size:0.78rem;color:var(--muted)">${s.examKeywords}</td>
+    <td><span class="cat-chip ${s.catChip.cls}">${s.catChip.label}</span></td>
+  `;
+  compareBody.appendChild(tr);
+});
+
+// ============================================================
+// FLASHCARDS
+// ============================================================
+const flashcardData = [
+  { q: 'Which service runs SQL on S3 without loading data?', hint: 'Serverless, pay-per-query', a: 'Amazon Athena', color: '#4FC3F7', detail: 'Presto engine. Pay per TB scanned. Use Parquet to save.' },
+  { q: 'What is the managed Kafka service?', hint: 'Apache...', a: 'Amazon MSK', color: '#BA68C8', detail: 'Managed Streaming for Apache Kafka. You bring your apps.' },
+  { q: 'Which service auto-discovers schemas with Crawlers?', hint: 'Serverless ETL + Catalog', a: 'AWS Glue', color: '#4DB6AC', detail: 'Crawlers scan data, infer types, and build the Data Catalog.' },
+  { q: 'What is the columnar data warehouse?', hint: 'Fast analytics queries', a: 'Amazon Redshift', color: '#90A4AE', detail: 'Columnar + MPP. Spectrum queries S3 without loading.' },
+  { q: 'Which service handles real-time streaming?', hint: 'Think: a flowing...', a: 'Amazon Kinesis', color: '#E57373', detail: 'Four services: Streams, Firehose, Analytics, Video.' },
+  { q: 'OpenSearch is a fork of what?', hint: 'Popular search engine', a: 'Elasticsearch 7.10', color: '#64B5F6', detail: 'Forked after Elastic changed its license in 2021.' },
+  { q: 'Which BI tool uses the SPICE engine?', hint: 'Dashboards, drag-and-drop', a: 'Amazon QuickSight', color: '#FF8A65', detail: 'SPICE = in-memory engine for fast dashboard queries.' },
+  { q: 'Where do you buy third-party datasets for AWS?', hint: 'A marketplace for data', a: 'AWS Data Exchange', color: '#81C784', detail: 'Data lands in your S3. No FTP, no API keys.' },
+  { q: 'Which service runs managed Spark/Hadoop?', hint: 'Elastic MapReduce', a: 'Amazon EMR', color: '#FFB74D', detail: 'Runs Spark, Hive, HBase, Presto on managed clusters.' },
+  { q: 'Schema-on-Read vs Schema-on-Write — which is Athena?', hint: 'Queries data where it sits', a: 'Schema-on-Read', color: '#4FC3F7', detail: 'Schema is applied at query time. Data stays raw in S3.' },
+  { q: 'How does Athena charge you?', hint: 'Based on how much data it reads', a: 'Per TB scanned', color: '#4FC3F7', detail: '$5/TB. Compress + partition to scan less, pay less.' },
+  { q: 'Which tool sends streaming data to S3 with zero code?', hint: 'Kinesis family', a: 'Kinesis Data Firehose', color: '#E57373', detail: 'Auto-delivers to S3/Redshift/OpenSearch. No shard management.' },
+];
+const flashGrid = document.getElementById('flashGrid');
+flashcardData.forEach(f => {
+  const card = document.createElement('div');
+  card.className = 'flash-card';
+  card.innerHTML = `
+    <div class="flash-face flash-front">
+      <p class="prompt">${f.q}</p>
+      <p class="hint">💡 ${f.hint}</p>
+    </div>
+    <div class="flash-face flash-back">
+      <p class="answer" style="color:${f.color}">${f.a}</p>
+      <p class="detail">${f.detail}</p>
+    </div>
+  `;
+  card.addEventListener('click', () => card.classList.toggle('flipped'));
+  flashGrid.appendChild(card);
+});
+
+// ============================================================
+// SCENARIO PRACTICE
+// ============================================================
+const scenarioData = [
+  { text: 'You have 200TB of access logs in S3. You need to run SQL queries on them occasionally — without loading the data anywhere.', answer: 'Amazon Athena' },
+  { text: 'Your website gets millions of clicks per minute. You want this data auto-delivered to S3 every 60 seconds with no custom code.', answer: 'Amazon Kinesis' },
+  { text: 'You have a 50-node Hadoop cluster running Spark/Hive on-prem. You want to move it to the cloud with minimal code changes.', answer: 'Amazon EMR' },
+  { text: 'Your data is spread across 8 S3 buckets and 3 databases. You need to auto-discover all schemas and build a searchable catalog.', answer: 'AWS Glue' },
+  { text: 'Your e-commerce site needs a search bar that handles typos and ranks results by relevance — like Google for your products.', answer: 'Amazon OpenSearch' },
+  { text: 'Business stakeholders need drag-and-drop dashboards from your Redshift warehouse. They don\'t write SQL.', answer: 'Amazon QuickSight' },
+  { text: 'Your team has been using Kafka for 3 years with custom Streams apps. You need managed Kafka in AWS.', answer: 'Amazon MSK' },
+  { text: 'You need one central place for all company analytics — complex joins, 500TB, consistent 3-second query speed.', answer: 'Amazon Redshift' },
+  { text: 'Your data science team wants to buy financial market data and have it land automatically in your S3 bucket each morning.', answer: 'AWS Data Exchange' },
+  { text: 'You need to catch fraudulent transactions in real-time as they happen — latency must be under 2 seconds.', answer: 'Amazon Kinesis' },
+];
+
+let scenarioScore = 0;
+const scenarioAnswered = new Set();
+const scenarioGrid = document.getElementById('scenarioGrid');
+const scenarioScoreEl = document.getElementById('scenarioScore');
+
+scenarioData.forEach((sc, i) => {
+  const card = document.createElement('div');
+  card.className = 'scenario-card';
+  card.id = 'sc-' + i;
+  const selectId = 'sc-select-' + i;
+
+  const opts = ['-- Choose a service --', ...serviceNames];
+  card.innerHTML = `
+    <div class="sc-text">${i + 1}. ${sc.text}</div>
+    <div class="sc-controls">
+      <select id="${selectId}">${opts.map(o => `<option value="${o}">${o}</option>`).join('')}</select>
+      <button class="check-btn" id="sc-btn-${i}">Check</button>
+    </div>
+    <div class="sc-feedback" id="sc-fb-${i}"></div>
+  `;
+  scenarioGrid.appendChild(card);
+
+  const btn = card.querySelector('.check-btn');
+  const select = card.querySelector('#' + selectId);
+  const fb = card.querySelector('.sc-feedback');
+
+  btn.addEventListener('click', () => {
+    if (scenarioAnswered.has(i)) return;
+    const chosen = select.value;
+    const correct = chosen === sc.answer;
+    scenarioAnswered.add(i);
+
+    card.classList.add(correct ? 'correct' : 'wrong');
+    fb.className = 'sc-feedback show ' + (correct ? 'correct-fb' : 'wrong-fb');
+    fb.innerHTML = correct
+      ? `✅ Correct! <strong>${sc.answer}</strong> is the right choice.`
+      : `❌ Not quite. The best choice is <strong>${sc.answer}</strong>.`;
+
+    if (correct) scenarioScore++;
+    scenarioScoreEl.textContent = `Score: ${scenarioScore} / 10`;
+
+    btn.disabled = true;
+    btn.style.opacity = '0.5';
+    select.disabled = true;
+  });
+});
+
+// ============================================================
+// QUIZ DATA (20 questions — kept from original)
+// ============================================================
+const quizData = [
+  { service: 'Athena', question: 'What open-source query engine does Amazon Athena use under the hood?', options: ['PostgreSQL', 'Presto/Trino', 'MySQL', 'Apache Hive'], correct: 1, explain: 'Athena is built on Presto (now the Trino fork). It translates your SQL into distributed queries that run directly against data in S3 — no loading, no servers.' },
+  { service: 'Athena', question: 'You have 50TB of access logs in S3. You need to run occasional ad-hoc SQL to investigate patterns. Which service fits best?', options: ['Redshift (load all 50TB first)', 'EMR (spin up a Spark cluster)', 'Athena (query directly in S3)', 'Glue (write an ETL job first)'], correct: 2, explain: 'Athena is purpose-built for this: ad-hoc SQL on data already sitting in S3. No loading phase, no cluster spin-up.' },
+  { service: 'Athena', question: 'Athena pricing is primarily determined by:', options: ['Number of concurrent queries', 'Data scanned per query (per-TB)', 'Number of tables defined', 'Peak compute capacity provisioned'], correct: 1, explain: 'Athena charges $5 per TB scanned. Use columnar formats (Parquet/ORC), partition your data, and compress — you can cut your bill by 90%+.' },
+  { service: 'Data Exchange', question: 'When you subscribe to a dataset on AWS Data Exchange, where does the data physically land?', options: ['A Redshift cluster AWS provisions for you', 'An S3 bucket you control', 'A DynamoDB table', 'An EFS file system'], correct: 1, explain: 'Subscribed data is delivered to an S3 bucket in your account. From there you can query it with Athena, load it into Redshift, process it with Glue.' },
+  { service: 'Data Exchange', question: 'You need to share a dataset with external organizations and potentially charge for access. Is AWS Data Exchange the right service?', options: ['No — use AWS RAM for external sharing', 'Yes — Data Exchange is built for publishing and monetizing data', 'No — use S3 pre-signed URLs with Stripe billing', 'Yes — but only for free datasets'], correct: 1, explain: 'AWS Data Exchange supports both free and paid datasets. Providers set pricing, AWS handles billing, entitlement, and delivery.' },
+  { service: 'EMR', question: 'What does the "E" in EMR stand for?', options: ['Enterprise', 'Elastic', 'Efficient', 'Enhanced'], correct: 1, explain: 'Elastic MapReduce. "Elastic" because you can resize clusters on the fly, use Spot instances, and auto-scale.' },
+  { service: 'EMR', question: 'You\'re migrating an on-premises 200-node Hadoop cluster running Spark and Hive to AWS. What\'s the most natural first choice?', options: ['Rewrite everything to use Glue ETL', 'Run Athena federated queries from on-prem', 'Lift and shift to EMR on EC2', 'Replace Hadoop with Kinesis streams'], correct: 2, explain: 'EMR was designed for exactly this migration path. Your existing Spark/Hive code runs with minimal changes.' },
+  { service: 'Glue', question: 'What does an AWS Glue Crawler actually do?', options: ['Indexes data for full-text search', 'Scans data sources, infers schema, and populates the Glue Data Catalog', 'Crawls websites for data to ingest', 'Walks through your S3 buckets checking for PII'], correct: 1, explain: 'A Glue Crawler connects to your data source, samples the data, infers column names and types, and creates/updates table definitions in the Glue Data Catalog.' },
+  { service: 'Glue', question: 'Is AWS Glue serverless?', options: ['No — you choose and pay for EC2 instance types', 'Partially — the Data Catalog is serverless but ETL jobs need clusters', 'Yes — it\'s fully serverless; you don\'t provision any infrastructure', 'Only Glue Studio is serverless'], correct: 2, explain: 'Glue is fully serverless. You configure DPU (Data Processing Unit) capacity for ETL jobs, but AWS manages all the underlying infrastructure.' },
+  { service: 'Kinesis', question: 'How many distinct services make up the Kinesis family?', options: ['2 (Streams + Analytics)', '3 (Streams, Firehose, Analytics)', '4 (Data Streams, Firehose, Analytics, Video Streams)', '5 (the four above plus Kinesis Agent)'], correct: 2, explain: 'Four: Kinesis Data Streams, Kinesis Data Firehose, Kinesis Data Analytics, and Kinesis Video Streams.' },
+  { service: 'Kinesis', question: 'You need to stream website clickstream data into S3 with minimal code and zero shard management. Which Kinesis service?', options: ['Kinesis Data Streams with a Lambda consumer', 'Kinesis Data Firehose', 'Kinesis Data Analytics with a sink', 'Kinesis Video Streams'], correct: 1, explain: 'Firehose is the "just get it to S3" option. It handles batching, compression, encryption, and retries automatically. No consumer code, no shard management.' },
+  { service: 'Kinesis', question: 'Which Kinesis service requires you to manually manage shard capacity?', options: ['Both Data Streams and Firehose', 'Kinesis Data Streams', 'Kinesis Data Firehose', 'Neither — all Kinesis services auto-scale'], correct: 1, explain: 'Kinesis Data Streams requires you to provision and manage shards (each shard = 1MB/sec write, 2MB/sec read). Firehose auto-scales transparently.' },
+  { service: 'MSK', question: 'What open-source technology does Amazon MSK manage for you?', options: ['RabbitMQ', 'ActiveMQ', 'Apache Kafka', 'NATS'], correct: 2, explain: 'MSK provisions, patches, and manages Apache Kafka clusters. You get native Kafka APIs.' },
+  { service: 'MSK', question: 'You\'re building a new streaming app on AWS with no existing Kafka investment. What should you evaluate first?', options: ['MSK — Kafka is the industry standard', 'Kinesis — simpler, more AWS-native, less operational overhead', 'Both are functionally identical, pick randomly', 'SQS with long polling'], correct: 1, explain: 'For greenfield AWS streaming, Kinesis is generally the better starting point: no broker management, tighter AWS integrations.' },
+  { service: 'OpenSearch', question: 'Amazon OpenSearch Service was created as a fork of which search engine?', options: ['Apache Solr', 'Elasticsearch (7.10)', 'Splunk', 'Algolia'], correct: 1, explain: 'After Elastic changed their license in 2021, AWS forked Elasticsearch 7.10 and created OpenSearch.' },
+  { service: 'OpenSearch', question: 'Your app needs full-text product search with typo tolerance and relevance ranking. Which service?', options: ['Athena (SQL LIKE queries)', 'Redshift (full-text search)', 'OpenSearch (purpose-built search engine)', 'QuickSight (search dashboards)'], correct: 2, explain: 'OpenSearch is built for this: fuzzy matching, relevance scoring (TF-IDF/BM25), autocomplete, faceted search, typo-tolerant queries.' },
+  { service: 'QuickSight', question: 'What is SPICE in Amazon QuickSight?', options: ['A query language for dashboards', 'An in-memory calculation engine for fast analytics', 'A machine learning model for forecasting', 'A data connector framework'], correct: 1, explain: 'SPICE = Super-fast, Parallel, In-memory Calculation Engine. It loads data from your sources and serves dashboard queries at memory speed.' },
+  { service: 'QuickSight', question: 'Business stakeholders need interactive dashboards from a Redshift data warehouse. They don\'t write SQL. Which service?', options: ['OpenSearch Dashboards', 'QuickSight', 'The Athena query editor', 'Amazon Managed Grafana'], correct: 1, explain: 'QuickSight is the AWS-native BI tool that connects directly to Redshift with a drag-and-drop interface.' },
+  { service: 'Redshift', question: 'What database storage architecture does Redshift use to optimize analytics queries?', options: ['Row-based OLTP storage', 'Columnar storage with MPP', 'Document store (JSON/BSON)', 'Graph database with property edges'], correct: 1, explain: 'Redshift stores data by column. When your query only touches 3 columns out of 50, Redshift only reads those 3 — dramatically reducing I/O.' },
+  { service: 'Redshift', question: 'What does Redshift Spectrum let you do?', options: ['Visualize Redshift data as a color spectrum', 'Run Redshift queries on data still sitting in S3', 'Replicate Redshift clusters across regions', 'Automatically tune sort and distribution keys'], correct: 1, explain: 'Redshift Spectrum extends Redshift queries to data in S3 without loading it first. You can join Redshift tables with S3 external tables in a single query.' },
+];
+
+// ============================================================
+// QUIZ ENGINE
+// ============================================================
+let currentQ = 0, quizScore = 0, quizAnswered = false;
+const quizContainer = document.getElementById('quizContainer');
+const quizProgressEl = document.getElementById('quizProgress');
+const scoreCard = document.getElementById('scoreCard');
+
+function buildQuiz() {
+  quizContainer.innerHTML = '';
+  quizData.forEach((q, i) => {
+    const card = document.createElement('div');
+    card.className = 'quiz-card';
+    card.id = 'qcard-' + i;
+    card.style.display = i === 0 ? 'block' : 'none';
+    const letters = ['A', 'B', 'C', 'D'];
+    card.innerHTML = `
+      <div class="quiz-q-num">${q.service} — Question ${i + 1} of 20</div>
+      <div class="quiz-question">${q.question}</div>
+      <div class="quiz-options" id="qopts-${i}">
+        ${q.options.map((o, oi) => `
+          <button class="quiz-option" onclick="answerQuestion(${i},${oi})">
+            <span class="opt-badge">${letters[oi]}</span> ${o}
+          </button>
+        `).join('')}
+      </div>
+      <div class="quiz-feedback" id="qfb-${i}"></div>
+      <button class="quiz-next" id="qnext-${i}" onclick="nextQuestion(${i})">Next ▶</button>
+    `;
+    quizContainer.appendChild(card);
+  });
+}
+
+function answerQuestion(qIdx, chosen) {
+  if (quizAnswered) return;
+  quizAnswered = true;
+  const q = quizData[qIdx];
+  const card = document.getElementById('qcard-' + qIdx);
+  const fb = document.getElementById('qfb-' + qIdx);
+  const nextBtn = document.getElementById('qnext-' + qIdx);
+  const options = document.querySelectorAll('#qopts-' + qIdx + ' .quiz-option');
+  const isCorrect = chosen === q.correct;
+
+  options.forEach(o => o.classList.add('disabled'));
+  options[q.correct].classList.add('correct-choice');
+  if (!isCorrect) options[chosen].classList.add('wrong-choice');
+
+  card.classList.add(isCorrect ? 'correct' : 'incorrect');
+  fb.className = 'quiz-feedback show ' + (isCorrect ? 'correct-fb' : 'incorrect-fb');
+  fb.innerHTML = `<strong>${isCorrect ? '✓ Correct!' : '✗ Not quite.'}</strong> ${q.explain}`;
+  nextBtn.classList.add('show');
+
+  if (isCorrect) quizScore++;
+  updateQuizProgress();
+}
+
+function nextQuestion(qIdx) {
+  document.getElementById('qcard-' + qIdx).style.display = 'none';
+  quizAnswered = false;
+  if (qIdx + 1 < quizData.length) {
+    currentQ = qIdx + 1;
+    const nextCard = document.getElementById('qcard-' + currentQ);
+    nextCard.style.display = 'block';
+    nextCard.scrollIntoView({ behavior: 'smooth', block: 'center' });
+  } else {
+    showScoreCard();
+  }
+  updateQuizProgress();
+}
+
+function updateQuizProgress() {
+  const shown = Math.min(currentQ + (quizAnswered ? 1 : 0) + 1, 20);
+  quizProgressEl.textContent = `Question ${Math.min(shown, 20)} of 20`;
+}
+
+function showScoreCard() {
+  quizContainer.style.display = 'none';
+  quizProgressEl.style.display = 'none';
+  scoreCard.classList.add('show');
+
+  const numEl = document.getElementById('scoreNumber');
+  numEl.textContent = quizScore + '/20';
+  numEl.style.color = quizScore >= 14 ? 'var(--success)' : quizScore >= 10 ? 'var(--accent)' : 'var(--danger)';
+
+  let grade, msg;
+  if (quizScore >= 18) {
+    grade = '🏆 Analytics Architect';
+    msg = 'You know AWS Analytics cold. Go take the Solutions Architect Professional exam tomorrow.';
+  } else if (quizScore >= 14) {
+    grade = '🎉 Data Engineer';
+    msg = 'Strong understanding. You\'d hold your own in any architecture discussion. Brush up on the 1-2 services you missed.';
+  } else if (quizScore >= 10) {
+    grade = '👍 Cloud Apprentice';
+    msg = 'Solid foundation. You know the big picture — time to dig deeper into the services that gave you trouble.';
+  } else {
+    grade = '📚 Keep Studying';
+    msg = 'No worries — this stuff is dense. Scroll back through the cards, take your time, and try again. Every architect started here.';
+  }
+
+  document.getElementById('scoreGrade').textContent = grade;
+  document.getElementById('scoreMsg').textContent = msg;
+
+  if (quizScore >= 18) launchConfetti();
+  scoreCard.scrollIntoView({ behavior: 'smooth' });
+}
+
+function resetQuiz() {
+  quizScore = 0; currentQ = 0; quizAnswered = false;
+  scoreCard.classList.remove('show');
+  quizContainer.style.display = 'block'; quizProgressEl.style.display = 'block';
+  quizProgressEl.textContent = 'Question 1 of 20';
+
+  document.querySelectorAll('.quiz-card').forEach((card, i) => {
+    card.style.display = i === 0 ? 'block' : 'none';
+    card.classList.remove('correct', 'incorrect');
+    const fb = card.querySelector('.quiz-feedback');
+    if (fb) { fb.className = 'quiz-feedback'; fb.innerHTML = ''; }
+    const nb = card.querySelector('.quiz-next');
+    if (nb) nb.classList.remove('show');
+    card.querySelectorAll('.quiz-option').forEach(o => {
+      o.classList.remove('disabled', 'correct-choice', 'wrong-choice');
+    });
+  });
+
+  quizContainer.scrollIntoView({ behavior: 'smooth' });
+  document.getElementById('confettiContainer').innerHTML = '';
+}
+
+function launchConfetti() {
+  const container = document.getElementById('confettiContainer');
+  const colors = ['#FFB347','#4FC3F7','#81C784','#E57373','#BA68C8','#64B5F6','#FF8A65','#4DB6AC','#f1c40f','#e91e63'];
+  const frag = document.createDocumentFragment();
+  for (let i = 0; i < 200; i++) {
+    const p = document.createElement('div');
+    p.className = 'confetti-piece';
+    p.style.left = '50%'; p.style.top = '45%';
+    p.style.width = (Math.random() * 10 + 6) + 'px';
+    p.style.height = (Math.random() * 10 + 6) + 'px';
+    p.style.background = colors[Math.floor(Math.random() * colors.length)];
+    p.style.borderRadius = Math.random() > 0.5 ? '50%' : '2px';
+    p.style.setProperty('--d', (Math.random() * 2 + 2) + 's');
+    p.style.setProperty('--delay', (Math.random() * 1.5) + 's');
+    p.style.setProperty('--dx', (Math.random() * 600 - 300) + 'px');
+    p.style.setProperty('--dy', (Math.random() * 500 + 300) + 'px');
+    p.style.setProperty('--sp', (Math.random() * 1080 - 540) + 'deg');
+    frag.appendChild(p);
+  }
+  container.appendChild(frag);
+  setTimeout(() => { container.innerHTML = ''; }, 4500);
+}
+buildQuiz();
+
+// ============================================================
+// CHEAT SHEET
+// ============================================================
+const cheatData = [
+  { emoji: '🔍', desc: 'SQL on S3 data — no servers, no ETL, pay-per-query', svc: 'Athena' },
+  { emoji: '📦', desc: 'Subscribe to third-party datasets delivered to your S3', svc: 'Data Exchange' },
+  { emoji: '⚡', desc: 'Managed Spark/Hadoop clusters for big data processing', svc: 'EMR' },
+  { emoji: '🗂️', desc: 'Crawlers auto-discover schemas + serverless ETL jobs', svc: 'Glue' },
+  { emoji: '🌊', desc: 'Real-time streaming: Data Streams, Firehose, Analytics, Video', svc: 'Kinesis' },
+  { emoji: '📨', desc: 'Fully managed Apache Kafka — bring your own clients', svc: 'MSK' },
+  { emoji: '🔎', desc: 'Full-text search engine + log analytics dashboards', svc: 'OpenSearch' },
+  { emoji: '📊', desc: 'Serverless BI dashboards with SPICE in-memory engine', svc: 'QuickSight' },
+  { emoji: '🏢', desc: 'Petabyte-scale columnar data warehouse with MPP', svc: 'Redshift' },
+  { emoji: '💰', desc: 'Charges per TB scanned — use Parquet + partitions to save', svc: 'Athena' },
+  { emoji: '📥', desc: 'Auto-delivers streaming data to S3 with zero consumer code', svc: 'Kinesis Firehose' },
+  { emoji: '🧠', desc: 'SPICE = Super-fast Parallel In-memory Calculation Engine', svc: 'QuickSight' },
+  { emoji: '📋', desc: 'Crawler infers schema and populates the Data Catalog', svc: 'Glue' },
+  { emoji: '🗜️', desc: 'Columnar storage — only reads columns your query touches', svc: 'Redshift' },
+];
+const cheatsheetGrid = document.getElementById('cheatsheetGrid');
+cheatData.forEach(c => {
+  const item = document.createElement('div');
+  item.className = 'cheat-item';
+  item.innerHTML = `<span class="ch-emoji">${c.emoji}</span><span class="ch-desc">${c.desc}</span><span class="ch-service">${c.svc}</span>`;
+  cheatsheetGrid.appendChild(item);
+});
+
+// ============================================================
+// NAV ACTIVE TRACKING
+// ============================================================
+const navLinks = document.querySelectorAll('#stickyNav a');
+const sectionIds = ['hero','tree','cards','concepts','compare','memory','scenarios','quiz','cheatsheet'];
+const sectionEls = sectionIds.map(id => document.getElementById(id));
+
+function updateNav() {
+  const scrollY = window.scrollY + 80;
+  let activeId = 'hero';
+  for (let i = sectionEls.length - 1; i >= 0; i--) {
+    if (sectionEls[i] && sectionEls[i].offsetTop <= scrollY) {
+      activeId = sectionIds[i]; break;
+    }
+  }
+  navLinks.forEach(a => {
+    a.classList.toggle('active', a.getAttribute('href') === '#' + activeId);
+  });
+}
+
+// ============================================================
+// PROGRESS BAR (IntersectionObserver-based)
+// ============================================================
+const progressFill = document.getElementById('progressFill');
+const progressSections = sectionEls.filter(Boolean);
+const progressSeen = new Set();
+const progressObserver = new IntersectionObserver((entries) => {
+  entries.forEach(e => {
+    if (e.isIntersecting) progressSeen.add(e.target.id);
+    const pct = Math.round((progressSeen.size / progressSections.length) * 100);
+    progressFill.style.width = Math.min(100, pct) + '%';
+  });
+}, { threshold: 0.2 });
+progressSections.forEach(el => progressObserver.observe(el));
+
+window.addEventListener('scroll', updateNav, { passive: true });
+updateNav();
+</script>
+</body>
+</html>
